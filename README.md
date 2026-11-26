@@ -1,129 +1,73 @@
 # FluxSend Go SDK
 
-The FluxSend Go SDK provides typed access to the FluxSend developer API used by
-the FluxSend CLI.
+The FluxSend Go SDK provides typed, context-aware access to the FluxSend developer
+API used by the FluxSend CLI.
 
-> Status: `v0.1.0` release candidate. The public API is not stable until
-> `v1.0.0`.
+[Read the full Go SDK documentation](https://docs.fluxsend.app/sdks/go/).
 
-## Scope
+> Latest release: `v0.1.1`. The SDK remains on `v0.x`; exported APIs may change
+> until `v1.0.0`.
 
-The initial SDK covers all 60 API-key-backed operations exposed by the FluxSend
-CLI server. The three public sharing operations are also available because they
-are part of the same OpenAPI contract.
+## Requirements
 
-The SDK owns HTTP communication and FluxSend API semantics. The CLI owns command
-parsing, profiles, credential storage, interactive prompts, output formatting,
-and exit codes.
+- Go 1.27.4 or newer
+- A FluxSend deployment URL
+- A personal or workspace API key for authenticated operations
 
-## Public package
+Public sharing operations can be used without an API key.
 
-The public import path is:
+## Install
 
-```go
-import "github.com/tscrond/fluxsend-sdk"
+```sh
+go get github.com/tscrond/fluxsend-sdk@v0.1.1
 ```
 
-The package name is `fluxsend`. The existing `reference` package is a generated
-development aid, not a compatibility promise.
-
-## Client contract
-
-The public client is configured explicitly:
+The public package name is `fluxsend`:
 
 ```go
-type Config struct {
-    BaseURL           string
-    APIKey            string
-    HTTPClient        *http.Client
-    UserAgent         string
-    AllowInsecureHTTP bool
-}
-
-func NewClient(Config) (*Client, error)
+import fluxsend "github.com/tscrond/fluxsend-sdk"
 ```
 
-- `BaseURL` must be an absolute HTTP or HTTPS URL without a query or fragment.
-  A deployment path prefix is allowed.
-- Plain HTTP is rejected unless `AllowInsecureHTTP` is explicitly enabled for
-  local development.
-- `APIKey` is sent only as `X-API-Key` to the configured deployment origin.
-- `HTTPClient` is injected so callers control proxies, TLS, and timeouts.
-- `UserAgent` defaults to a versioned FluxSend SDK identifier.
-- A `Client` is safe for concurrent use after construction.
-- Public sharing calls may be made without an API key; API-key-backed calls
-  fail locally with a typed authentication error when the key is missing.
-
-Representative call:
+## First request
 
 ```go
+ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+defer cancel()
+
 client, err := fluxsend.NewClient(fluxsend.Config{
-    BaseURL: "https://fluxsend.app",
-    APIKey:  apiKey,
+	BaseURL: "https://fluxsend.app",
+	APIKey:  os.Getenv("FLUXSEND_API_KEY"),
 })
 if err != nil {
-    return err
+	return err
 }
 
 workspaces, err := client.ListWorkspaces(ctx)
+if err != nil {
+	return err
+}
 ```
 
-## Method conventions
+Keep API keys in server-side configuration or a secrets manager. Do not embed
+them in browser code.
 
-- Every network operation accepts `context.Context` as its first argument.
-- API-key-backed operations are methods on `*Client`.
-- Method names follow stable OpenAPI operation IDs.
-- Request inputs use SDK-owned `...Request` types.
-- Success payload types are returned directly; callers do not decode the
-  FluxSend response envelope.
-- JSON and error behavior is deterministic across operations.
-- Path parameters are escaped by the SDK.
-- Non-idempotent mutations are never retried implicitly.
+## Documentation
 
-## Errors
+| Topic | Guide |
+| --- | --- |
+| Installation and first request | [Go SDK quickstart](https://docs.fluxsend.app/sdks/go/quickstart/) |
+| Hosted/self-hosted configuration and API keys | [Configuration & authentication](https://docs.fluxsend.app/sdks/go/configuration-authentication/) |
+| Typed errors, retries, and cancellation | [Errors & reliability](https://docs.fluxsend.app/sdks/go/errors-reliability/) |
+| Direct uploads, chunked uploads, and downloads | [Files & transfers](https://docs.fluxsend.app/sdks/go/files-transfers/) |
+| Operation coverage and compatibility | [Operations & versions](https://docs.fluxsend.app/sdks/go/operations-versions/) |
+| Generated API reference | [docs.fluxsend.app/api](https://docs.fluxsend.app/api/) |
 
-The SDK distinguishes:
-
-- Configuration and missing-credential errors.
-- Transport and context-cancellation errors.
-- Authentication failures.
-- Authorization and scope failures.
-- Not-found and conflict failures.
-- Rate limits, including `Retry-After`.
-- Server and malformed-response failures.
-
-Typed errors preserve the HTTP status and safe FluxSend API message. Error
-strings, logs, and examples must never include API keys, signed URLs, or file
-contents.
-
-Read-only requests may retry transient transport failures and rate limits.
-Retries must honor `Retry-After` and remain bounded. Unsafe mutations require an
-explicit caller retry decision.
-
-## Files
-
-- Direct uploads accept streaming readers and do not buffer complete files.
-- Downloads return a stream whose ownership and close behavior are explicit.
-- Chunked uploads expose initialize, part, complete, and abort operations.
-- The higher-level chunked upload workflow supports bounded concurrency,
-  progress, cancellation, and best-effort abort.
-
-## Compatibility
-
-- SDK releases are versioned independently from the backend.
-- `v0.x` may introduce breaking API changes; each release documents them.
-- Starting with `v1.0.0`, backwards-incompatible exported API changes require a
-  major version.
-- Deprecated APIs remain available for at least one minor release when feasible.
-- Generated operation coverage is checked against the FluxSend CLI contract.
-
-## Known limits
-
-- Go only.
-- Cross-process chunked-upload resume is not persisted.
-- Browser OAuth and CLI credential storage are outside the SDK.
+The SDK covers all 63 operations in the FluxSend CLI API contract: 60
+API-key-backed operations and 3 public sharing operations.
 
 ## Development
+
+Regenerate the typed SDK from the backend contract:
 
 ```sh
 go run ./internal/genref \
@@ -133,16 +77,25 @@ go run ./internal/genref \
   -names internal/genref/names.json \
   -public-out operations.go \
   -public-types-out types.go
-go run ./internal/coverage \
-  -backend ../fluxsend-backend \
-  -spec ../fluxsend-backend/docs/swagger.json \
-  -names internal/genref/names.json
-go test ./...
-go vet ./...
 ```
 
-Run the real backend integration suite:
+Run the main checks:
+
+```sh
+go test -race -count=1 ./...
+go vet ./...
+govulncheck ./...
+```
+
+Run the PostgreSQL and MinIO integration suite:
 
 ```sh
 ./scripts/run-integration.sh
 ```
+
+Release and rollback instructions are in [RELEASING.md](RELEASING.md). Supported
+operations and known limits are listed in [CHANGELOG.md](CHANGELOG.md).
+
+## License
+
+See [LICENSE](LICENSE).
