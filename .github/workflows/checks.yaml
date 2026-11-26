@@ -36,6 +36,7 @@ jobs:
         with:
           go-version-input: '1.27.4'
           go-package: ./...
+          repo-checkout: false
 
       - name: Generate SDK
         run: |
