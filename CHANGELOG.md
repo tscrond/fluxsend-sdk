@@ -13,6 +13,42 @@
 - Stable operation-name manifest and automated API coverage checks.
 - PostgreSQL and MinIO integration suite for uploads, downloads, scopes, and workspace bindings.
 
+### Supported operations
+
+API keys:
+
+- `CreatePrivateAPIKey`, `DeletePrivateAPIKey`, `ListPrivateAPIKeys`
+- `CreateWorkspaceAPIKey`, `DeleteWorkspaceAPIKey`, `ListWorkspaceAPIKeys`
+
+Files, folders, and sharing:
+
+- `DeleteFile`, `DeleteMultipleFiles`, `MoveFile`, `GetFileTree`
+- `UploadFile`, `DownloadPublicShare`, `DownloadPrivateFile`
+- `DeleteFolder`, `ListFolders`, `MoveFolder`
+- `GetFileNote`, `EditFileNote`
+- `CreateQuickShare`, `ShareFiles`, `RevokeShare`
+- `ListReceivedShares`, `MarkReceivedShareAsSeen`, `CountUnseenReceivedFiles`
+- `ListOutgoingShares`, `GetPublicShareInfo`, `ResolvePublicShare`
+- `InitializePersonalFileMultipartUpload`, `UploadPersonalFileMultipartPart`
+- `CompletePersonalFileMultipartUpload`, `AbortPersonalFileMultipartUpload`
+
+Users:
+
+- `DeleteAccount`, `GetUserBucketData`, `GetCurrentUserData`
+- `GetLinkedIdentities`, `CreatePrivateDownloadToken`, `GetUserStatistics`
+
+Workspaces:
+
+- `CreateWorkspace`, `DeleteWorkspace`, `ListWorkspaces`, `RenameWorkspace`
+- `ListWorkspaceInvites`, `CreateWorkspaceInvite`, `DeleteWorkspaceInvite`
+- `ListMyWorkspaceInvites`, `AcceptWorkspaceInvite`, `RejectWorkspaceInvite`
+- `ListWorkspaceMembers`, `RemoveWorkspaceMember`, `ChangeMemberRole`
+- `CreateWorkspaceFolder`, `MoveWorkspaceFolder`, `DeleteWorkspaceFolder`
+- `MoveWorkspaceFile`, `DeleteWorkspaceFile`, `GetWorkspaceFileTree`
+- `UploadWorkspaceFile`, `DownloadWorkspaceFile`, `GetWorkspaceQuota`
+- `InitializeWorkspaceFileMultipartUpload`, `UploadWorkspaceFileMultipartPart`
+- `CompleteWorkspaceFileMultipartUpload`, `AbortWorkspaceFileMultipartUpload`
+
 ### Known limits
 
 - The SDK is Go-only.
