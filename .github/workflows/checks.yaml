@@ -1,0 +1,80 @@
+name: Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout SDK
+        uses: actions/checkout@v4
+
+      - name: Checkout backend contract
+        uses: actions/checkout@v4
+        with:
+          repository: tscrond/fluxsend-backend
+          path: fluxsend-backend
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.mod
+
+      - name: Test
+        run: go test -race -count=1 ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Vulnerability scan
+        uses: golang/govulncheck-action@v1
+        with:
+          go-version-input: '1.27.3'
+          go-package: ./...
+
+      - name: Generate SDK
+        run: |
+          go run ./internal/genref \
+            -spec fluxsend-backend/docs/swagger.json \
+            -out reference/operations.go \
+            -types-out reference/types.go \
+            -names internal/genref/names.json \
+            -public-out operations.go \
+            -public-types-out types.go
+
+      - name: Verify generated files
+        run: git diff --exit-code -- operations.go types.go reference/operations.go reference/types.go
+
+      - name: Verify API coverage
+        run: |
+          go run ./internal/coverage \
+            -backend fluxsend-backend \
+            -spec fluxsend-backend/docs/swagger.json \
+            -names internal/genref/names.json
+
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout SDK
+        uses: actions/checkout@v4
+
+      - name: Checkout backend
+        uses: actions/checkout@v4
+        with:
+          repository: tscrond/fluxsend-backend
+          path: fluxsend-backend
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.mod
+
+      - name: Run backend integration suite
+        run: ./scripts/run-integration.sh
