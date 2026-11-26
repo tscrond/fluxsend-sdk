@@ -1,0 +1,60 @@
+name: fluxsend-sdk-integration
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: fluxsend
+      POSTGRES_PASSWORD: fluxsend
+      POSTGRES_DB: fluxsend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fluxsend -d fluxsend"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  minio:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    command: server /data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  backend:
+    build:
+      context: ${FLUXSEND_BACKEND_DIR:-../../fluxsend-backend}
+    command: ["./fluxsend", "--dev-api"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      APP_ENV: test
+      FLUXSEND_API_LISTEN_PORT: "8091"
+      BACKEND_ENDPOINT: http://127.0.0.1:18091
+      FRONTEND_ENDPOINT: http://127.0.0.1:18000
+      POSTGRES_USER: fluxsend
+      POSTGRES_PASSWORD: fluxsend
+      POSTGRES_DB: fluxsend
+      DB_HOST: postgres
+      STORAGE_PROVIDER: minio
+      MINIO_BUCKET_NAME: fluxsend
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minio
+      MINIO_ROOT_USER: minio
+      MINIO_SECRET_KEY: minio123
+      MINIO_ROOT_PASSWORD: minio123
+      MINIO_REGION: us-east-1
+      MINIO_USE_SSL: "false"
+      MAIL_PROVIDER: standard
+      MAIL_FROM: noreply@example.invalid
+      SMTP_HOST: localhost
+      SMTP_PORT: "587"
+    ports:
+      - "18091:8091"
